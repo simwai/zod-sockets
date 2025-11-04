@@ -47,9 +47,11 @@ export class Action<
     this.#inputSchema = action.input;
     this.#outputSchema =
       "output" in action ? action.output : (undefined as OUT);
-    this.#handler = action.handler;
+    this.#handler = action.handler as Handler<
+      ActionContext<z.output<IN>, EmissionMap, z.ZodObject>,
+      z.input<NonNullable<OUT>> | void
+    >;
   }
-
   public override get event(): string {
     return this.#event;
   }
@@ -95,8 +97,9 @@ export class Action<
     }
   }
 
+  /** @desc  Accept unknown so Zod can validate and type the result */
   /** @throws OutputValidationError */
-  #parseOutput(output: z.input<NonNullable<OUT>> | void) {
+  #parseOutput(output: unknown) {
     if (!this.#outputSchema) {
       return;
     }

@@ -2,6 +2,7 @@ import { Socket } from "socket.io";
 import { z } from "zod";
 import { AbstractAction, Action } from "./action";
 import { AbstractLogger } from "./logger";
+import { OutputValidationError } from "./errors";
 
 describe("Action", () => {
   const simpleHandler = vi.fn();
@@ -107,6 +108,24 @@ describe("Action", () => {
       expect(ackMock).toHaveBeenLastCalledWith(123); // from ackHandler
     });
 
+    test("should handle ack with as const (readonly tuple)", async () => {
+      const ackMock = vi.fn();
+      const constHandler = (async (): Promise<readonly [number]> => [456] as const) as unknown as any;
+      const constAction = new Action({
+        event: "constAck",
+        input: z.tuple([]),
+        output: z.tuple([z.number()]),
+        handler: constHandler,
+      });
+
+      await constAction.execute({
+        ...commons,
+        logger: loggerMock as unknown as AbstractLogger,
+        params: [ackMock],
+      });
+      expect(ackMock).toHaveBeenLastCalledWith(456);
+    });
+
     test("should throw input parsing error", async () => {
       await expect(
         simpleAction.execute({
@@ -134,5 +153,46 @@ describe("Action", () => {
         ).rejects.toThrowErrorMatchingSnapshot();
       },
     );
+
+    test("should throw OutputValidationError on invalid handler return", async () => {
+      const invalidAction = new Action({
+        event: "invalid",
+        input: z.tuple([]),
+        output: z.tuple([z.number()]),
+        handler: (async (): Promise<[unknown]> => [
+          { wrong: "shape" },
+        ]) as unknown as any,
+      });
+
+      const ackMock = vi.fn();
+      await expect(
+        invalidAction.execute({
+          ...commons,
+          logger: loggerMock as unknown as AbstractLogger,
+          params: [ackMock],
+        }),
+      ).rejects.toThrow(OutputValidationError);
+    });
+
+    test("should handle conditional returns with multiple branches", async () => {
+      const conditionalHandler = (async (): Promise<[{ status: string }]> => {
+        return [{ status: "ok" }];
+      }) as unknown as any;
+
+      const conditionalAction = new Action({
+        event: "conditional",
+        input: z.tuple([z.string()]),
+        output: z.tuple([z.object({ status: z.string() })]),
+        handler: conditionalHandler,
+      });
+
+      const ackMock = vi.fn();
+      await conditionalAction.execute({
+        ...commons,
+        logger: loggerMock as unknown as AbstractLogger,
+        params: ["mode", ackMock],
+      });
+      expect(ackMock).toHaveBeenLastCalledWith({ status: "ok" });
+    });
   });
 });

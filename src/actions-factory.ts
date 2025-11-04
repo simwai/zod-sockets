@@ -50,6 +50,27 @@ export interface ActionWithAckDef<
 export class ActionsFactory<NS extends Namespaces> {
   constructor(protected config: Config<NS>) {}
 
+  /**
+   * @desc Overload: No output schema provided
+   * @desc Returns action without acknowledgement
+   */
+  public build<IN extends z.ZodTuple, K extends keyof NS = RootNS>(
+    def: ActionNoAckDef<IN, NS, K>,
+  ): Action<NS, IN, undefined>;
+
+  /**
+   * @desc Overload: Output schema provided
+   * @desc Returns action with acknowledgement
+   */
+  public build<
+    IN extends z.ZodTuple,
+    OUT extends z.ZodTuple,
+    K extends keyof NS = RootNS,
+  >(def: ActionWithAckDef<IN, OUT, NS, K>): Action<NS, IN, OUT>;
+
+  /**
+   * @desc Implementation signature
+   */
   public build<
     IN extends z.ZodTuple,
     OUT extends z.ZodTuple | undefined = undefined,

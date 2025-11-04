@@ -35,7 +35,7 @@ export interface TracingContext<E extends EmissionMap, D extends z.ZodObject>
 
 export interface ErrorContext<E extends EmissionMap, D extends z.ZodObject>
   extends IndependentContext<E, D>,
-    Partial<Pick<TracingContext<E, D>, "event" | "payload" | "client">> {
+  Partial<Pick<TracingContext<E, D>, "event" | "payload" | "client">> {
   error: Error;
 }
 
@@ -45,4 +45,12 @@ export interface ActionContext<IN, E extends EmissionMap, D extends z.ZodObject>
   input: IN;
 }
 
-export type Handler<CTX, OUT> = (params: CTX) => Promise<OUT>;
+/** @desc Accept tuple, array, and readonly spread tuple forms */
+type TupleCompatible<T extends readonly any[]> =
+  | T
+  | Array<T[number]>
+  | readonly [...T];
+
+export type Handler<CTX, OUT> = OUT extends void
+  ? (params: CTX) => Promise<void>
+  : (params: CTX) => Promise<TupleCompatible<OUT extends readonly [...infer U] ? U : never>>;
